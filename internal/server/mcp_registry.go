@@ -2,7 +2,6 @@ package server
 
 import (
 	"fmt"
-	"net/http"
 	"noc-mcp/internal/tools"
 	"noc-mcp/pkg/logger"
 
@@ -42,10 +41,9 @@ func SetupAndRun(port string) error {
 	// Crear el servidor SSE para MCP
 	sse := server.NewSSEServer(s)
 
-	// Exponer los endpoints estándar de MCP sobre HTTP
-	http.Handle("/sse", sse.HandleSSE())
-	http.Handle("/message", sse.HandleMessage())
-
 	logger.Log.Info("Servidor MCP HTTP/SSE en ejecución", zap.String("port", port))
-	return http.ListenAndServe(fmt.Sprintf(":%s", port), nil)
+
+	// El método Start() configura internamente las rutas /sse y /message
+	// e inicia el servidor HTTP automáticamente.
+	return sse.Start(fmt.Sprintf(":%s", port))
 }

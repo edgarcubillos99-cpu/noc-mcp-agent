@@ -1,5 +1,5 @@
 # Etapa 1: Construcción (Builder)
-FROM golang:1.22-alpine AS builder
+FROM golang:1.25.3-alpine AS builder
 
 # Instalar libcap para manipulación de capacidades en la etapa de build
 RUN apk add --no-cache libcap
