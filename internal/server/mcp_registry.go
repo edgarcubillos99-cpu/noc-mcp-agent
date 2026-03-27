@@ -2,6 +2,7 @@ package server
 
 import (
 	"noc-mcp/internal/tools"
+
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
 )
@@ -18,9 +19,20 @@ func SetupAndRun() error {
 	)
 	s.AddTool(toolPing, tools.PingHandler)
 
-	// Aquí agregarías traceroute y nmap siguiendo la misma lógica:
-	// s.AddTool(toolTraceroute, tools.TracerouteHandler)
-	// s.AddTool(toolNmap, tools.NmapHandler)
+	// 2. Tool: Nmap
+	toolNmap := mcp.NewTool("network_nmap",
+		mcp.WithDescription("Ejecuta un escaneo de puertos Nmap silencioso (-Pn)."),
+		mcp.WithString("target", mcp.Required(), mcp.Description("IP o FQDN a escanear.")),
+		mcp.WithString("ports", mcp.Description("Puertos opcionales (ej: '80,443' o '1-1000').")),
+	)
+	s.AddTool(toolNmap, tools.NmapHandler)
+
+	// 3. Tool: Traceroute
+	toolTraceroute := mcp.NewTool("network_traceroute",
+		mcp.WithDescription("Traza la ruta de red hacia un destino para detectar cuellos de botella o caídas."),
+		mcp.WithString("target", mcp.Required(), mcp.Description("IP o FQDN destino.")),
+	)
+	s.AddTool(toolTraceroute, tools.TracerouteHandler)
 
 	// Iniciar servidor
 	return server.ServeStdio(s)

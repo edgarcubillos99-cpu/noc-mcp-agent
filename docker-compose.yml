@@ -1,0 +1,61 @@
+version: '3.8'
+
+services:
+  noc-mcp-agent:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: noc-telco-agent
+    restart: unless-stopped
+    env_file:
+      APP_ENV: ${APP_ENV}
+      LOG_LEVEL: ${LOG_LEVEL}
+      MAX_PING_WORKERS: ${MAX_PING_WORKERS}
+      MAX_NMAP_WORKERS: ${MAX_NMAP_WORKERS}
+      
+    # ---------------------------------------------------------
+    # SEGURIDAD Y HARDENING (Estándar Telco/NOC)
+    # ---------------------------------------------------------
+    
+    # 1. Privilegios Mínimos: Evita la escalada de privilegios
+    security_opt:
+      - no-new-privileges:true
+      
+    # 2. Capacidades del Kernel Linux:
+    # Quitamos TODOS los permisos de root por defecto.
+    cap_drop:
+      - ALL
+    # Añadimos ÚNICAMENTE la capacidad de manipular raw sockets.
+    # Sin esto, el comando ping y traceroute fallarán dentro de Docker.
+    cap_add:
+      - NET_RAW
+      
+    # 3. Inmutabilidad: Sistema de archivos de solo lectura.
+    # Si un atacante vulnera la IA y logra inyectar comandos de shell, 
+    # no podrá descargar malware ni modificar binarios.
+    read_only: true
+    
+    # Como el FS es read-only, montamos /tmp en RAM por si nmap 
+    # o el sistema operativo necesitan escribir archivos temporales efímeros.
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
+
+    # ---------------------------------------------------------
+    # CONFIGURACIÓN DE RED
+    # ---------------------------------------------------------
+    # IMPORTANTE: Si las herramientas de diagnóstico (nmap, traceroute) 
+    # necesitan ver las interfaces reales del host (ej. vlan taggeadas) 
+    # en lugar de la red virtual de Docker, debes descomentar la siguiente línea:
+    # network_mode: "host"
+
+    # ---------------------------------------------------------
+    # OBSERVABILIDAD
+    # ---------------------------------------------------------
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "3"
+        # Opcional: Si tienes un stack ELK/Splunk, puedes enviar directo a Syslog
+        # driver: "syslog"
+        # syslog-address: "udp://syslog.telecom.local:514"
