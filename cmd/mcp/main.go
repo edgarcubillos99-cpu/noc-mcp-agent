@@ -2,20 +2,28 @@ package main
 
 import (
 	"noc-mcp/internal/server"
+	"noc-mcp/internal/tools"
+	"noc-mcp/pkg/config"
 	"noc-mcp/pkg/logger"
 
 	"go.uber.org/zap"
 )
 
 func main() {
-	// Inicializar observabilidad
+	// 1. Cargar variables de entorno
+	config.Load()
+
+	// 2. Inicializar observabilidad
 	logger.InitLogger()
-	defer logger.Log.Sync() // Asegurar que los logs en buffer se escriban al salir
+	defer logger.Log.Sync()
 
-	logger.Log.Info("Iniciando Agente MCP para NOC Telco...")
+	// 3. Inicializar semáforos de concurrencia
+	tools.InitNmapSemaphore()
 
-	// Arrancar servidor
-	if err := server.SetupAndRun(); err != nil {
+	logger.Log.Info("Iniciando Agente MCP para NOC Telco...", zap.String("env", config.App.AppEnv))
+
+	// 4. Arrancar servidor en el puerto configurado
+	if err := server.SetupAndRun(config.App.HTTPPort); err != nil {
 		logger.Log.Fatal("Error fatal iniciando el servidor MCP", zap.Error(err))
 	}
 }

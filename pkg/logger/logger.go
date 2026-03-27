@@ -1,6 +1,8 @@
 package logger
 
 import (
+	"noc-mcp/pkg/config"
+
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
@@ -9,12 +11,30 @@ var Log *zap.Logger
 
 // InitLogger configura un logger estructurado en formato JSON
 func InitLogger() {
-	config := zap.NewProductionConfig()
-	config.EncoderConfig.TimeKey = "timestamp"
-	config.EncoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
+	var cfg zap.Config
+
+	if config.App.AppEnv == "development" {
+		cfg = zap.NewDevelopmentConfig()
+	} else {
+		cfg = zap.NewProductionConfig()
+		cfg.EncoderConfig.TimeKey = "timestamp"
+		cfg.EncoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
+	}
+
+	// Ajustar el nivel de log dinámicamente
+	switch config.App.LogLevel {
+	case "debug":
+		cfg.Level.SetLevel(zap.DebugLevel)
+	case "warn":
+		cfg.Level.SetLevel(zap.WarnLevel)
+	case "error":
+		cfg.Level.SetLevel(zap.ErrorLevel)
+	default:
+		cfg.Level.SetLevel(zap.InfoLevel)
+	}
 
 	var err error
-	Log, err = config.Build()
+	Log, err = cfg.Build()
 	if err != nil {
 		panic("Error crítico inicializando zap logger: " + err.Error())
 	}

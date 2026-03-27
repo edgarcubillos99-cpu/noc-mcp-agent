@@ -8,14 +8,13 @@ import (
 	"sync"
 	"time"
 
+	"noc-mcp/pkg/config"
 	"noc-mcp/pkg/logger"
 	"noc-mcp/pkg/util"
 
 	"github.com/mark3labs/mcp-go/mcp"
 	"go.uber.org/zap"
 )
-
-const maxPingWorkers = 50 // Límite de concurrencia para proteger el servidor
 
 type pingJob struct {
 	IP    string
@@ -46,8 +45,9 @@ func PingHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToo
 	resultsChan := make(chan pingResult, len(targetsRaw))
 	var wg sync.WaitGroup
 
-	// 1. Iniciar los Workers (Máximo 50)
-	for i := 0; i < maxPingWorkers && i < len(targetsRaw); i++ {
+	// 1. Iniciar los Workers basado en la variable de entorno MAX_PING_WORKERS
+	limit := config.App.MaxPingWorkers
+	for i := 0; i < limit && i < len(targetsRaw); i++ {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()

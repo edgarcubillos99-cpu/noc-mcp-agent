@@ -1,14 +1,19 @@
 package server
 
 import (
+	"fmt"
+	"net/http"
 	"noc-mcp/internal/tools"
+	"noc-mcp/pkg/logger"
+
+	"go.uber.org/zap"
 
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
 )
 
 // SetupAndRun inicializa el servidor y mapea las herramientas
-func SetupAndRun() error {
+func SetupAndRun(port string) error {
 	s := server.NewMCPServer("noc-telco-agent", "1.0.0")
 
 	// 1. Tool: Ping
@@ -34,6 +39,13 @@ func SetupAndRun() error {
 	)
 	s.AddTool(toolTraceroute, tools.TracerouteHandler)
 
-	// Iniciar servidor
-	return server.ServeStdio(s)
+	// Crear el servidor SSE para MCP
+	sse := server.NewSSEServer(s)
+
+	// Exponer los endpoints estándar de MCP sobre HTTP
+	http.Handle("/sse", sse.HandleSSE())
+	http.Handle("/message", sse.HandleMessage())
+
+	logger.Log.Info("Servidor MCP HTTP/SSE en ejecución", zap.String("port", port))
+	return http.ListenAndServe(fmt.Sprintf(":%s", port), nil)
 }

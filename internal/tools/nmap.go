@@ -7,12 +7,25 @@ import (
 	"regexp"
 	"time"
 
+	"noc-mcp/pkg/config"
 	"noc-mcp/pkg/util"
+
 	"github.com/mark3labs/mcp-go/mcp"
 )
 
+var nmapSemaphore chan struct{}
+
+// InitNmapSemaphore debe llamarse al iniciar la app
+func InitNmapSemaphore() {
+	nmapSemaphore = make(chan struct{}, config.App.MaxNmapWorkers)
+}
+
 // NmapHandler ejecuta un escaneo de puertos contra un equipo de la red
 func NmapHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	// 1. Adquirir un token del semáforo (Bloquea si ya hay MAX_NMAP_WORKERS corriendo)
+	nmapSemaphore <- struct{}{}
+	// 2. Liberar el token al terminar la función
+	defer func() { <-nmapSemaphore }()
 	toolArgs := request.GetArguments()
 	// Extraer y validar el target
 	targetRaw, ok := toolArgs["target"].(string)
@@ -24,7 +37,7 @@ func NmapHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToo
 		return mcp.NewToolResultError("Destino inválido por políticas de seguridad."), nil
 	}
 
-	// Construir los argumentos básicos. 
+	// Construir los argumentos básicos.
 	// -Pn: Vital en Telco para escanear interfaces de gestión que dropean ICMP.
 	args := []string{"-Pn"}
 
