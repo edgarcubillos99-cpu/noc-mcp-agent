@@ -10,6 +10,7 @@ import (
 
 	"noc-mcp/pkg/config"
 	"noc-mcp/pkg/logger"
+	"noc-mcp/pkg/parser"
 	"noc-mcp/pkg/util"
 
 	"github.com/mark3labs/mcp-go/mcp"
@@ -96,36 +97,34 @@ func PingHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToo
 		close(resultsChan)
 	}()
 
-	// 4. Recolectar resultados y emitir Auditoría
 	for res := range resultsChan {
 		status := "success"
-		var resultStr string
+		var summary string
 
 		if res.Error != nil {
 			status = "failed"
 			if res.Error.Error() == "timeout" {
-				resultStr = fmt.Sprintf("❌ [%s] Timeout", res.IP)
+				summary = fmt.Sprintf("[TIMEOUT] %s — sin respuesta en 15s", res.IP)
 			} else {
-				resultStr = fmt.Sprintf("❌ [%s] Fallo:\n%s", res.IP, res.Output)
+				summary = parser.SummarizePing(res.IP, res.Output)
 			}
 		} else {
-			resultStr = fmt.Sprintf("✅ [%s] OK:\n%s", res.IP, res.Output)
+			summary = parser.SummarizePing(res.IP, res.Output)
 		}
 
 		mu.Lock()
-		finalResults = append(finalResults, resultStr)
+		finalResults = append(finalResults, summary)
 		mu.Unlock()
 
-		// Emisión del log de cumplimiento (Compliance Audit)
 		logger.AuditEvent(
 			"network_ping",
 			res.IP,
 			res.TimeMs,
 			status,
-			"ai-agent-mcp", // Aquí en el futuro puedes inyectar el ID de sesión del usuario en Teams o WhatsApp
-			resultStr,
+			"ai-agent-mcp",
+			summary,
 		)
 	}
 
-	return mcp.NewToolResultText(strings.Join(finalResults, "\n\n")), nil
+	return mcp.NewToolResultText(strings.Join(finalResults, "\n")), nil
 }

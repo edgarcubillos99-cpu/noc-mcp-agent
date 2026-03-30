@@ -6,9 +6,12 @@ import (
 	"os/exec"
 	"time"
 
+	"noc-mcp/pkg/logger"
+	"noc-mcp/pkg/parser"
 	"noc-mcp/pkg/util"
 
 	"github.com/mark3labs/mcp-go/mcp"
+	"go.uber.org/zap"
 )
 
 // TracerouteHandler ejecuta un traceroute para analizar saltos de red
@@ -23,20 +26,29 @@ func TracerouteHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.C
 		return mcp.NewToolResultError("Destino inválido por políticas de seguridad."), nil
 	}
 
-	// Timeout de 45 segundos para traceroute (puede ser lento en redes Telco)
+	start := time.Now()
 	cmdCtx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
 	defer cancel()
 
-	// Usamos -n para evitar resolución DNS lenta y -m 30 para max saltos
 	cmd := exec.CommandContext(cmdCtx, "traceroute", "-n", "-m", "30", targetRaw)
 	out, err := cmd.CombinedOutput()
+	elapsed := time.Since(start).Milliseconds()
 
 	if err != nil {
+		status := "failed"
+		var summary string
 		if cmdCtx.Err() == context.DeadlineExceeded {
-			return mcp.NewToolResultError(fmt.Sprintf("Timeout excedido trazando la ruta a %s.\nSalida parcial:\n%s", targetRaw, string(out))), nil
+			summary = fmt.Sprintf("[TIMEOUT] traceroute a %s excedió 45s", targetRaw)
+		} else {
+			summary = fmt.Sprintf("[ERROR] traceroute a %s: %s", targetRaw, err.Error())
 		}
-		return mcp.NewToolResultError(fmt.Sprintf("Error ejecutando traceroute hacia %s:\n%s\n%s", targetRaw, err.Error(), string(out))), nil
+		logger.AuditEvent("network_traceroute", targetRaw, elapsed, status, "ai-agent-mcp", summary)
+		return mcp.NewToolResultError(summary), nil
 	}
 
-	return mcp.NewToolResultText(string(out)), nil
+	summary := parser.SummarizeTraceroute(string(out))
+	logger.AuditEvent("network_traceroute", targetRaw, elapsed, "success", "ai-agent-mcp", summary)
+	logger.Log.Debug("traceroute raw output", zap.String("target", targetRaw), zap.String("raw", string(out)))
+
+	return mcp.NewToolResultText(summary), nil
 }

@@ -8,9 +8,12 @@ import (
 	"time"
 
 	"noc-mcp/pkg/config"
+	"noc-mcp/pkg/logger"
+	"noc-mcp/pkg/parser"
 	"noc-mcp/pkg/util"
 
 	"github.com/mark3labs/mcp-go/mcp"
+	"go.uber.org/zap"
 )
 
 var nmapSemaphore chan struct{}
@@ -54,19 +57,30 @@ func NmapHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToo
 	// Añadir el target al final de los argumentos
 	args = append(args, targetRaw)
 
-	// Los escaneos nmap pueden ser lentos, asignamos 60 segundos de timeout
+	start := time.Now()
 	cmdCtx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
 	cmd := exec.CommandContext(cmdCtx, "nmap", args...)
 	out, err := cmd.CombinedOutput()
 
+	elapsed := time.Since(start).Milliseconds()
+
 	if err != nil {
+		status := "failed"
+		var summary string
 		if cmdCtx.Err() == context.DeadlineExceeded {
-			return mcp.NewToolResultError(fmt.Sprintf("Timeout excedido (60s) escaneando %s.\nSalida parcial:\n%s", targetRaw, string(out))), nil
+			summary = fmt.Sprintf("[TIMEOUT] nmap a %s excedió 60s", targetRaw)
+		} else {
+			summary = fmt.Sprintf("[ERROR] nmap a %s: %s", targetRaw, err.Error())
 		}
-		return mcp.NewToolResultError(fmt.Sprintf("Error escaneando %s:\n%s\n%s", targetRaw, err.Error(), string(out))), nil
+		logger.AuditEvent("network_nmap", targetRaw, elapsed, status, "ai-agent-mcp", summary)
+		return mcp.NewToolResultError(summary), nil
 	}
 
-	return mcp.NewToolResultText(string(out)), nil
+	summary := parser.SummarizeNmap(string(out))
+	logger.AuditEvent("network_nmap", targetRaw, elapsed, "success", "ai-agent-mcp", summary)
+	logger.Log.Debug("nmap raw output", zap.String("target", targetRaw), zap.String("raw", string(out)))
+
+	return mcp.NewToolResultText(summary), nil
 }

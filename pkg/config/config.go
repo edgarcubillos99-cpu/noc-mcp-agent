@@ -11,11 +11,11 @@ type Config struct {
 	MaxPingWorkers int
 	MaxNmapWorkers int
 	HTTPPort       string
+	APIKey         string
 }
 
 var App Config
 
-// Load inicializa las variables de entorno con fallbacks seguros
 func Load() {
 	App = Config{
 		AppEnv:         getEnv("APP_ENV", "production"),
@@ -23,6 +23,7 @@ func Load() {
 		MaxPingWorkers: getEnvAsInt("MAX_PING_WORKERS", 50),
 		MaxNmapWorkers: getEnvAsInt("MAX_NMAP_WORKERS", 5),
 		HTTPPort:       getEnv("HTTP_PORT", "8080"),
+		APIKey:         getEnv("API_KEY", ""),
 	}
 }
 

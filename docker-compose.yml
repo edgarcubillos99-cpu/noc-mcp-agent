@@ -16,7 +16,8 @@ services:
       HTTP_PORT: ${HTTP_PORT}
       LOG_LEVEL: ${LOG_LEVEL}
       MAX_PING_WORKERS: ${MAX_PING_WORKERS}
-      MAX_NMAP_CONCURRENCY: ${MAX_NMAP_CONCURRENCY}
+      MAX_NMAP_WORKERS: ${MAX_NMAP_WORKERS}
+      API_KEY: ${API_KEY}
       
     # ---------------------------------------------------------
     # SEGURIDAD Y HARDENING (Estándar Telco/NOC)
